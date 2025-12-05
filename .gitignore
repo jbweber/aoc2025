@@ -1,0 +1,11 @@
+# Zig build artifacts
+zig-out/
+zig-cache/
+.zig-cache/
+
+# Executable files (common AOC output names)
+*.exe
+
+# Input files
+input.txt
+testInput.txt
