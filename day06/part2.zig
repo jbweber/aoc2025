@@ -1,51 +1,95 @@
 const std = @import("std");
 
 pub fn main() !void {
-    const input1 = @embedFile("testInput.txt");
+    const input1 = @embedFile("input.txt");
 
     var lines = std.mem.tokenizeScalar(u8, input1, '\n');
 
-    var grid: [5][1000][]const u8 = undefined;
+    var grid: [5][]const u8 = undefined;
 
-    var rowIndex: usize = 0;
-    var colCount: usize = 0;
+    var rowSize: usize = 0;
 
     while (lines.next()) |line| {
-        const trimmedLine = std.mem.trim(u8, line, " \r");
-        var tokens = std.mem.tokenizeScalar(u8, trimmedLine, ' ');
-        var colIndex: usize = 0;
-        while (tokens.next()) |token| {
-            grid[rowIndex][colIndex] = token;
-            colIndex += 1;
-        }
-        colCount = colIndex;
-        rowIndex += 1;
+        grid[rowSize] = line;
+        rowSize += 1;
     }
+
+    const trimmedLastLine = std.mem.trim(u8, grid[rowSize - 1], " \r");
+    var operators = std.mem.tokenizeScalar(u8, trimmedLastLine, ' ');
+
+    var ops: [1500]u8 = undefined;
+    var opCount: usize = 0;
+
+    while (operators.next()) |op| {
+        ops[opCount] = op[0];
+        opCount += 1;
+    }
+
+    std.debug.print("Parsed {d} operators\n", .{opCount});
 
     var result: u64 = 0;
+    var colCount = grid[0].len - 1;
 
-    for (0..colCount) |col| {
-        const op = grid[rowIndex - 1][col];
-        const multiply: bool = switch (op[0]) {
-            '*' => true, // multiply
-            '+' => false, // add
-            else => return error.InvalidOperation,
-        };
+    var opIndex = opCount - 1;
+    var accumulator: u64 = 0;
+    var multiply = switch (ops[opIndex]) {
+        '*' => true,
+        '+' => false,
+        else => unreachable,
+    };
 
-        var accumulator: u64 = switch (multiply) {
-            true => 1,
-            false => 0,
-        };
-
-        for (0..rowIndex - 1) |row| {
-            const token = try std.fmt.parseInt(u64, grid[row][col], 10);
-            accumulator = switch (multiply) {
-                true => accumulator * token,
-                false => accumulator + token,
-            };
-        }
-        result += accumulator;
+    if (multiply) {
+        accumulator = 1;
     }
 
+    while (colCount >= 0) {
+        var number: u64 = 0;
+        for (0..rowSize - 1) |row| {
+            switch (grid[row][colCount]) {
+                ' ' => {
+                    // skip whitespace
+                },
+                else => {
+                    // Build number digit by digit: multiply shifts existing digits left,
+                    // then add new digit. E.g., for "431": 0->4->43->431
+                    // The - '0' converts ASCII char to numeric value ('4' -> 4)
+                    number = number * 10 + grid[row][colCount] - '0';
+                },
+            }
+        }
+
+        if (number == 0 and colCount > 0) {
+            // reset for next grouping
+            result += accumulator;
+            opIndex -= 1;
+            multiply = switch (ops[opIndex]) {
+                '*' => true,
+                '+' => false,
+                else => unreachable,
+            };
+            if (multiply) {
+                accumulator = 1;
+            } else {
+                accumulator = 0;
+            }
+            colCount -= 1;
+            continue;
+        }
+
+        if (multiply) {
+            accumulator *= number;
+        } else {
+            accumulator += number;
+        }
+        std.debug.print("Processed column {d}\n", .{colCount});
+
+        if (colCount == 0) {
+            break;
+        } else {
+            colCount -= 1;
+        }
+    }
+
+    result += accumulator;
     std.debug.print("Result: {d}\n", .{result});
 }
